@@ -1,0 +1,18 @@
+# Paths a learner PR must not change. virtint-review.yml restores them from main before
+# grading and always reads this file from main, never from the PR.
+tests/**
+src/test/**
+Makefile
+CMakeLists.txt
+**/CMakeLists.txt
+pyproject.toml
+pom.xml
+third_party/**
+.github/**
+reports/**
+CODEOWNERS
+# shopcore-py additions: grading toolchain, seed data and index
+requirements-dev.txt
+tools/**
+.virtint/**
+shopcore/data/**

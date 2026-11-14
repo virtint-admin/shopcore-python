@@ -1,0 +1,5 @@
+# Every change to ShopCore needs a review from the platform team.
+*                   @shopcore/platform
+/shopcore/ledger/   @shopcore/finance-eng
+/shopcore/tax/      @shopcore/finance-eng
+/tests/             @shopcore/qa

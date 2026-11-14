@@ -1,0 +1,25 @@
+sku,name,category,brand,price,currency,mrp,weight_g,length_cm,width_cm,height_cm,active,tags
+APP-0001-BLK-M,Classic Crew Tee,APP,Kora,499.00,INR,599.00,180,30,25,2,true,cotton|tee|basics
+APP-0001-BLK-L,Classic Crew Tee,APP,Kora,499.00,INR,599.00,190,30,25,2,true,cotton|tee|basics
+APP-0001-WHT-M,Classic Crew Tee,APP,Kora,499.00,INR,599.00,180,30,25,2,true,cotton|tee|basics
+APP-0002-BLU-32,Slim Denim Jeans,APP,Indigo Mill,1899.00,INR,2499.00,650,40,30,5,true,denim|jeans
+APP-0003-GRN-S,Linen Kurta,APP,Kora,1299.00,INR,1299.00,300,35,28,3,true,linen|kurta|festive
+APP-0004-RED-XL,Rain Jacket,APP,Monsoon Gear,2799.00,INR,3299.00,700,45,35,8,false,outerwear|rain
+ELC-0101,Wireless Earbuds,ELC,Sonica,2999.00,INR,4999.00,120,10,8,4,true,audio|bluetooth
+ELC-0102,USB-C Charger 65W,ELC,Voltix,1499.00,INR,1999.00,150,8,6,3,true,charger|usb-c
+ELC-0103,Smart Bulb Pack of 4,ELC,Lumo,1799.00,INR,1799.00,400,22,12,12,true,lighting|smart-home
+ELC-0104,Mechanical Keyboard,ELC,Keystone,5499.00,INR,6999.00,1100,45,15,5,true,keyboard|gaming
+ELC-0105,27in Monitor,ELC,Pixelline,15999.00,INR,18999.00,5200,70,50,15,true,monitor|display
+HOM-0201,Steel Water Bottle,HOM,Hydra,649.00,INR,799.00,350,8,8,27,true,kitchen|bottle
+HOM-0202,Cotton Bedsheet Double,HOM,Sleepwell,1199.00,INR,1599.00,900,35,30,6,true,bedding|cotton
+HOM-0203,Ceramic Dinner Set,HOM,Terra,3499.00,INR,3999.00,6500,50,40,30,true,kitchen|ceramic
+HOM-0204,Bamboo Cutting Board,HOM,Terra,549.00,INR,549.00,800,40,25,2,true,kitchen|bamboo
+BKS-0301,The Pragmatic Coder,BKS,Lighthouse Press,699.00,INR,799.00,550,24,16,3,true,programming|paperback
+BKS-0302,Monsoon Recipes,BKS,Spice Route Books,450.00,INR,450.00,480,25,20,2,true,cooking|paperback
+BKS-0303,Kids Atlas of India,BKS,Lighthouse Press,350.00,INR,399.00,400,30,22,1,true,children|atlas
+GRC-0401,Assam Tea 500g,GRC,Brahmaputra Estates,325.00,INR,350.00,520,15,10,6,true,tea|beverage
+GRC-0402,Cold Pressed Coconut Oil 1L,GRC,Kerala Groves,420.00,INR,450.00,1000,10,10,25,true,oil|cooking
+GRC-0403,Basmati Rice 5kg,GRC,Doon Fields,899.00,INR,950.00,5100,40,25,10,true,rice|staples
+TOY-0501,Wooden Puzzle Map,TOY,Channapatna Craft,799.00,INR,899.00,600,30,30,3,true,wooden|puzzle
+TOY-0502,Remote Control Car,TOY,Zoomr,1999.00,INR,2499.00,900,35,20,15,true,rc|outdoor
+TOY-0503,Building Blocks 200pc,TOY,Brickly,1499.00,INR,1499.00,1200,40,30,10,true,blocks|construction

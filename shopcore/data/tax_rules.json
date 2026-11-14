@@ -1,0 +1,18 @@
+{
+  "IN-KA": {"name": "GST", "rate": "18", "inclusive": false, "taxes_shipping": false,
+            "category_rates": {"BKS": "0", "GRC": "5", "APP": "12"}},
+  "IN-MH": {"name": "GST", "rate": "18", "inclusive": false, "taxes_shipping": true,
+            "category_rates": {"BKS": "0", "GRC": "5", "APP": "12"}},
+  "IN-DL": {"name": "GST", "rate": "18", "inclusive": false, "taxes_shipping": false,
+            "category_rates": {"BKS": "0", "GRC": "5", "APP": "12"}},
+  "IN-TN": {"name": "GST", "rate": "18", "inclusive": false, "taxes_shipping": true,
+            "category_rates": {"BKS": "0", "GRC": "5", "APP": "12"}},
+  "US-NY": {"name": "Sales tax", "rate": "8.875", "inclusive": false, "taxes_shipping": true,
+            "category_rates": {"GRC": "0"}},
+  "US-OR": {"name": "Sales tax", "rate": "0", "inclusive": false, "taxes_shipping": false,
+            "category_rates": {}},
+  "DE": {"name": "MwSt", "rate": "19", "inclusive": true, "taxes_shipping": true,
+         "category_rates": {"BKS": "7", "GRC": "7"}},
+  "GB": {"name": "VAT", "rate": "20", "inclusive": true, "taxes_shipping": true,
+         "category_rates": {"BKS": "0", "GRC": "0"}}
+}

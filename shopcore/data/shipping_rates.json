@@ -1,0 +1,19 @@
+{
+  "currency": "INR",
+  "step_g": 500,
+  "services": {
+    "standard": {
+      "LOCAL":    {"base": "40.00", "per_step": "20.00", "days": 2},
+      "REGIONAL": {"base": "55.00", "per_step": "30.00", "days": 4},
+      "NATIONAL": {"base": "70.00", "per_step": "45.00", "days": 6},
+      "REMOTE":   {"base": "95.00", "per_step": "60.00", "days": 9}
+    },
+    "express": {
+      "LOCAL":    {"base": "80.00",  "per_step": "35.00", "days": 1},
+      "REGIONAL": {"base": "110.00", "per_step": "50.00", "days": 2},
+      "NATIONAL": {"base": "150.00", "per_step": "75.00", "days": 3}
+    }
+  },
+  "holidays": ["2026-01-26", "2026-08-15", "2026-10-02", "2026-11-08", "2026-12-25", "2027-01-26"],
+  "warehouses": {"BLR": "560001", "BOM": "400001", "DEL": "110001"}
+}

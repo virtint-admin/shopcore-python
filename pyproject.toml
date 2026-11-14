@@ -1,0 +1,81 @@
+[project]
+name = "shopcore"
+version = "1.0.0"
+description = "ShopCore: the back-office engine of a fictional online store."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary - VirtInt training material" }
+dependencies = []  # runtime is pure standard library
+
+[project.optional-dependencies]
+# Pinned copies live in requirements-dev.txt (used by CI and the review workflow).
+dev = [
+    "pytest>=9.1",
+    "pytest-timeout>=2.4",
+    "pytest-cov>=7.1",
+    "ruff>=0.16",
+    "mypy>=2.3",
+    "tzdata>=2026.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["shopcore*"]
+
+[tool.setuptools.package-data]
+shopcore = ["data/*.json", "data/*.csv"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "--import-mode=importlib",
+    "-p", "no:cacheprovider",
+    "--strict-markers",
+    "-ra",
+]
+junit_family = "xunit2"
+junit_suite_name = "shopcore-py"
+timeout = 30
+timeout_method = "thread"
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["shopcore"]
+branch = false
+data_file = "reports/.coverage"
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PL", "N"]
+ignore = [
+    "PLR0913",  # domain functions legitimately take many arguments
+    "PLR2004",  # magic numbers are fine in a pricing engine
+    "PLR0911",
+    "PLR0917",  # positional args are the house style for domain functions
+    "RUF001",   # currency symbols are intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "N802"]
+"tools/**" = ["PLC0415"]  # imports are deferred so broken modules are reported, not fatal
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+packages = ["shopcore"]

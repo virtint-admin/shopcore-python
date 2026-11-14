@@ -1,0 +1,92 @@
+# Checks a learner's pull request: does it make the linked issue's test pass?
+# Copied into every published task repo as .github/workflows/check-fix.yml.
+#
+# The pull request description must say "Fixes #<issue number>". The result is the
+# "check-fix" check on the pull request (green = the issue's test passes).
+#
+# Why pull_request_target: GitHub then runs THIS file from the default branch, so a pull
+# request cannot edit the workflow to fake a pass. The pull request's code is still
+# untrusted, so the token is read-only, no secret is used, nothing is cached, and the
+# tests, build files and this script are taken from the default branch.
+
+name: check-fix
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: check-fix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  SETUP_COMMAND: ''     # set per repo when the task repo is built (Java: make deps)
+  PYTHON_VERSION: '3.12'
+  JAVA_VERSION: '21'
+
+jobs:
+  check-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the default branch (trusted)
+        uses: actions/checkout@v4
+        with:
+          path: base
+          persist-credentials: false
+
+      - name: Find the issue and its test
+        id: issue
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          n="$(bash base/.virtint/check-fix.sh issue-number)"
+          ISSUE_BODY="$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "" else (.body // "") end')" \
+            || { echo "::error::#$n is not an issue of this repository"; exit 1; }
+          export ISSUE_BODY
+          tid="$(bash base/.virtint/check-fix.sh test-id base)"
+          echo "Issue #$n -> test $tid"
+          echo "test_id=$tid" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the pull request (untrusted)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Restore tests and build files from the default branch
+        shell: bash
+        run: bash base/.virtint/check-fix.sh restore base pr
+
+      - uses: actions/setup-python@v5
+        if: hashFiles('base/requirements-dev.txt') != ''
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        if: hashFiles('base/requirements-dev.txt') != ''
+        shell: bash
+        run: python -m pip install -q -r base/requirements-dev.txt
+
+      - uses: actions/setup-java@v4
+        if: hashFiles('base/pom.xml') != ''
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Run the issue's test
+        shell: bash
+        env:
+          TEST_ID: ${{ steps.issue.outputs.test_id }}
+        run: bash base/.virtint/check-fix.sh run pr "$TEST_ID"

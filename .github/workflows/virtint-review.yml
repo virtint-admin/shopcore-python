@@ -1,0 +1,259 @@
+# VirtInt review workflow for a task repo. Copy to .github/workflows/virtint-review.yml
+# on the default branch. Contract: docs/contracts/review-workflow.md.
+#
+# The VirtInt worker starts it with workflow_dispatch for one pull request and reads the
+# result from the run's conclusion (success = the assigned test passed). It runs
+# UNTRUSTED code from a fork, so:
+#   * permissions are read-only, no secret is referenced, and checkout does not persist
+#     the token;
+#   * the tests and every file that controls how tests run are taken from the default
+#     branch, never from the PR;
+#   * only the test(s) of the assigned issue are run, never the whole suite;
+#   * inputs reach the shell through environment variables only, after validation.
+
+name: virtint-review
+run-name: virtint-review pr-${{ inputs.pr_number }} ${{ inputs.head_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+      head_sha:
+        description: Head commit of the pull request (40 hex characters)
+        required: true
+      issue:
+        description: Assigned issue (GitHub issue number or issue code)
+        required: true
+      tests:
+        description: Test IDs to run, ';'-separated (empty = everything under test_path)
+        required: false
+        default: ''
+      test_path:
+        description: Tests to run when `tests` is empty (default tests/issue_<issue>)
+        required: false
+        default: ''
+      keep:
+        description: Protected paths this issue may change, ';'-separated (not restored from the default branch)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # Per-repo configuration. Edit these in the repo's copy of this file, or set the
+  # repository variables VIRTINT_SETUP_COMMAND / VIRTINT_TEST_COMMAND / VIRTINT_LANGUAGE
+  # (variables win). Commands run with bash in the PR tree and see $ISSUE, $TESTS
+  # (';'-separated) and $TEST_PATH. Empty = the per-language default below.
+  SETUP_COMMAND: 'python -m pip install -q -r requirements-dev.txt'
+  TEST_COMMAND: ': "${TESTS:?this repo is graded by test id}"; make build && make test TESTS="$TESTS"'
+  LANGUAGE: python
+  PYTHON_VERSION: '3.12'
+  JAVA_VERSION: '21'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+      HEAD_SHA: ${{ inputs.head_sha }}
+      ISSUE: ${{ inputs.issue }}
+      TESTS: ${{ inputs.tests }}
+      TEST_PATH: ${{ inputs.test_path }}
+      KEEP: ${{ inputs.keep }}
+      VAR_SETUP_COMMAND: ${{ vars.VIRTINT_SETUP_COMMAND }}
+      VAR_TEST_COMMAND: ${{ vars.VIRTINT_TEST_COMMAND }}
+      VAR_LANGUAGE: ${{ vars.VIRTINT_LANGUAGE }}
+    steps:
+      - name: Validate inputs
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$PR_NUMBER" =~ ^[0-9]{1,9}$ ]] || fail "bad pr_number"
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "bad head_sha"
+          [[ "$ISSUE" =~ ^[A-Za-z0-9_-]{1,64}$ ]] || fail "bad issue"
+          [[ "$TESTS" =~ ^[]A-Za-z0-9_./:#@=+,\ \;[-]*$ ]] || fail "bad tests"
+          [[ "$TEST_PATH" =~ ^[A-Za-z0-9_./-]*$ ]] || fail "bad test_path"
+          [[ "$KEEP" =~ ^[A-Za-z0-9_./*\;-]*$ ]] || fail "bad keep"
+          for p in "$TEST_PATH" "$KEEP" "$TESTS"; do
+            case "$p" in /*|*..*) fail "paths must be relative and may not contain '..'" ;; esac
+          done
+          if [[ -z "$TESTS" && -z "$TEST_PATH" ]]; then
+            if [[ "$ISSUE" =~ ^[0-9]+$ ]]; then
+              echo "TEST_PATH=tests/issue_${ISSUE}" >> "$GITHUB_ENV"
+            else
+              fail "no tests given for issue $ISSUE: refusing to run the whole suite"
+            fi
+          fi
+
+      - name: Check out the default branch (trusted tests and test configuration)
+        uses: actions/checkout@v4
+        with:
+          path: base
+          persist-credentials: false
+
+      - name: Check out the pull request head (untrusted)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head_sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Restore tests and test configuration from the default branch
+        id: restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Everything a solution may not change. The two lists must stay equal to
+          # apps/api/app/review/protected.py in the VirtInt repo (a PR touching them is
+          # rejected before this workflow runs; restoring them here is the second lock).
+          PROTECTED_DIRS=(tests src/test .github)
+          PROTECTED_FILES=(conftest.py pytest.ini pyproject.toml setup.cfg tox.ini pom.xml build.gradle build.gradle.kts CMakeLists.txt Makefile)
+
+          # Repo-specific additions (one path or glob per line), read from the default branch.
+          EXTRA=()
+          if [[ -f base/.virtint/protected.txt ]]; then
+            while IFS= read -r line || [[ -n "$line" ]]; do
+              line="${line%%#*}"; line="${line//[[:space:]]/}"
+              if [[ -n "$line" ]]; then EXTRA+=("${line//\*\*/*}"); fi
+            done < base/.virtint/protected.txt
+          fi
+          IFS=';' read -r -a KEEP_LIST <<< "${KEEP:-}"
+
+          matches() {  # matches <path> <pattern>...: exact path, directory prefix or glob
+            local rel="$1" p
+            shift
+            for p in "$@"; do
+              p="${p%/}"
+              [[ -n "$p" ]] || continue
+              # shellcheck disable=SC2053
+              if [[ "$rel" == "$p" || "$rel" == "$p"/* || "$rel" == $p ]]; then return 0; fi
+            done
+            return 1
+          }
+          protected() {
+            local rel="$1" f
+            if matches "$rel" "${PROTECTED_DIRS[@]}"; then return 0; fi
+            for f in "${PROTECTED_FILES[@]}"; do
+              if [[ "${rel##*/}" == "$f" ]]; then return 0; fi
+            done
+            matches "$rel" "${EXTRA[@]}"
+          }
+          list() {  # every file and symlink of a tree, repo-relative, NUL-separated
+            ( cd "$1" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 ) | sed -z 's|^\./||' | sort -z
+          }
+          pr_root="$(realpath pr)"
+
+          # 1. drop the PR's version of every protected path (unless the issue may change it)
+          while IFS= read -r -d '' rel; do
+            if protected "$rel" && ! matches "$rel" "${KEEP_LIST[@]}"; then rm -f -- "pr/$rel"; fi
+          done < <(list pr)
+          # 2. copy the default branch's version back in
+          while IFS= read -r -d '' rel; do
+            if ! protected "$rel" || matches "$rel" "${KEEP_LIST[@]}"; then continue; fi
+            dir="$(realpath -m -- "pr/$(dirname "$rel")")"
+            if [[ "$dir" != "$pr_root" && "$dir" != "$pr_root"/* ]]; then
+              echo "::error::$(dirname "$rel") leaves the repository through a symlink in the pull request"
+              exit 1
+            fi
+            mkdir -p "$dir"
+            cp -a -- "base/$rel" "pr/$rel"
+          done < <(list base)
+          # 3. empty directories left behind would only confuse test discovery
+          for d in "${PROTECTED_DIRS[@]}"; do
+            if [[ -d "pr/$d" && ! -L "pr/$d" ]]; then find "pr/$d" -depth -type d -empty -delete; fi
+          done
+          echo "restored tests and test configuration from $(git -C base rev-parse --short HEAD)"
+
+      - name: Detect language
+        id: lang
+        shell: bash
+        run: |
+          set -euo pipefail
+          lang="${VAR_LANGUAGE:-}"; lang="${lang:-$LANGUAGE}"
+          if [[ -z "$lang" ]]; then
+            if [[ -f base/pom.xml || -f base/build.gradle || -f base/build.gradle.kts ]]; then lang=java
+            elif [[ -f base/CMakeLists.txt ]]; then lang=cpp
+            else lang=python; fi
+          fi
+          case "$lang" in python|java|cpp) ;; *) echo "::error::unsupported language '$lang'"; exit 1 ;; esac
+          echo "lang=$lang" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.lang.outputs.lang == 'python'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-java@v4
+        if: steps.lang.outputs.lang == 'java'
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up dependencies
+        shell: bash
+        working-directory: pr
+        env:
+          REPO_LANG: ${{ steps.lang.outputs.lang }}
+        run: |
+          set -euo pipefail
+          cmd="${VAR_SETUP_COMMAND:-}"; cmd="${cmd:-$SETUP_COMMAND}"
+          if [[ -n "$cmd" ]]; then
+            bash -euo pipefail -c "$cmd"
+          elif [[ "$REPO_LANG" == python ]]; then
+            if [[ -f requirements-dev.txt ]]; then python -m pip install -q -r requirements-dev.txt
+            elif [[ -f requirements.txt ]]; then python -m pip install -q -r requirements.txt pytest
+            else python -m pip install -q pytest; fi
+          fi
+
+      - name: Run the assigned test
+        shell: bash
+        working-directory: pr
+        env:
+          REPO_LANG: ${{ steps.lang.outputs.lang }}
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/review-output.txt"
+          cmd="${VAR_TEST_COMMAND:-}"; cmd="${cmd:-$TEST_COMMAND}"
+          IFS=';' read -r -a IDS <<< "${TESTS:-}"
+          run_tests() {
+            if [[ -n "$cmd" ]]; then
+              bash -euo pipefail -c "$cmd"
+              return
+            fi
+            case "$REPO_LANG" in
+              python)
+                if [[ ${#IDS[@]} -gt 0 ]]; then targets=("${IDS[@]}"); else targets=("$TEST_PATH"); fi
+                python -m pytest -q -p no:cacheprovider "${targets[@]}"
+                ;;
+              java)
+                if [[ ${#IDS[@]} -gt 0 ]]; then filter="${TESTS//;/,}"; else filter="**/$(basename "$TEST_PATH")/**"; fi
+                mvn -B -q test -Dtest="$filter" -Dsurefire.failIfNoSpecifiedTests=true
+                ;;
+              cpp)
+                if [[ ${#IDS[@]} -gt 0 ]]; then regex="^(${TESTS//;/|})\$"; regex="${regex//./\\.}"; else regex="$(basename "$TEST_PATH")"; fi
+                cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+                cmake --build build --parallel
+                ctest --test-dir build --output-on-failure --no-tests=error -R "$regex"
+                ;;
+            esac
+          }
+          echo "issue $ISSUE | tests: ${TESTS:-<none>} | test_path: ${TEST_PATH:-<none>}" | tee "$out"
+          run_tests 2>&1 | tee -a "$out"
+          code=${PIPESTATUS[0]}
+          echo "exit code: $code" | tee -a "$out"
+          exit "$code"
+
+      - name: Upload the test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-${{ inputs.pr_number }}-${{ inputs.head_sha }}
+          path: ${{ runner.temp }}/review-output.txt
+          if-no-files-found: ignore
+          retention-days: 7
