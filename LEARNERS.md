@@ -90,33 +90,23 @@ make lint
 1. Commit on a branch and push it to your fork.
 2. Open a pull request from your fork to **this repository's `main`**.
 3. In the description, write **`Fixes #<issue number>`**, for example `Fixes #12`.
-   This is how the check knows which issue you're fixing. `Closes #12` and
-   `Resolves #12` also work.
+   This links the pull request to its issue. `Closes #12` and `Resolves #12` also work.
 
 One issue per pull request. To fix another issue, open another pull request from a
 separate branch.
 
 ## 8. Read the result
 
-A check called **check-fix** runs on your pull request automatically, and again every
-time you push or edit the description.
+VirtInt runs your assigned issue's test on your pull request and posts the result as a
+comment from **virtint-reviewer**, usually within a few minutes. You also see it on your
+VirtInt dashboard.
 
-- ✅ **Green:** your issue's test passes. Done!
-- ❌ **Red:** click **Details** next to check-fix, then open the step
-  **"Run the issue's test"** to see the test output. Fix, push again, and the check
-  reruns.
+- ✅ **Passed:** your pass is recorded and your next issue arrives on your dashboard.
+  Don't push more commits to this pull request; use a new branch for the next issue.
+- ❌ **Failed:** the comment shows the test output. Fix, push again, and the test reruns.
 
-Common messages:
-
-| Message | What to do |
-|---|---|
-| `Say which issue this pull request fixes` | Add `Fixes #<number>` to the pull request description. |
-| `#N is not an issue of this repository` / `That issue is not a task of this repository` | Check the number. It must be one of this repository's open issues, not a pull request. |
-| `These files are tests or build files and were reset` | You changed protected files. That's only a warning: they were put back, and your fix was checked without them. |
-| `FAIL: <test>` | The test still fails. Read the output above it. |
-
-If the check doesn't start at all, GitHub may be waiting for a maintainer to approve
-workflows for a brand-new GitHub account. It runs once approved.
+Tests and build files are reset to `main` before your test runs, so changing them has
+no effect.
 
 ## 9. Good habits
 

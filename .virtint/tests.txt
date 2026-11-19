@@ -1,4 +1,4 @@
-# issue id -> the test its pull request must make pass (read by check-fix.sh)
+# issue id -> the test its pull request must make pass
 PY-0009 tests/issues/test_issue_0009.py::test_issue_0009
 PY-0012 tests/issues/test_issue_0012.py::test_issue_0012
 PY-0014 tests/issues/test_issue_0014.py::test_issue_0014
